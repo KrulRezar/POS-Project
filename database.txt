@@ -1,0 +1,116 @@
+-- new_pos_db_setup.sql
+-- This script sets up the entire database structure for the Point-of-Sale (POS) application.
+
+-- 1. Database Creation
+-- Just creating the database if it doesn't already exist, and making sure we use it.
+CREATE DATABASE IF NOT EXISTS `new_pos_db`;
+USE `new_pos_db`;
+
+--
+-- 2. Role Definitions
+-- This is the core of our RBAC (Role-Based Access Control).
+-- We'll use these IDs to link users to their access levels.
+--
+CREATE TABLE `roles` (
+  `role_id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `role_name` VARCHAR(50) NOT NULL UNIQUE
+);
+
+--
+-- 3. User Accounts
+-- This holds all staff login details.
+-- NOTE: Passwords are being stored as plain text here for simplicity during development. 
+-- NEVER deploy this in a real environment without hashing the passwords!
+--
+CREATE TABLE `users` (
+  `user_id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `username` VARCHAR(100) NOT NULL UNIQUE,
+  `password` VARCHAR(255) NOT NULL, 
+  `role_id` INT NOT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (`role_id`) REFERENCES `roles`(`role_id`)
+);
+
+--
+-- 4. Product Inventory
+-- The main product catalogue. Price is set in Philippine Pesos (PHP).
+-- The description field is handy for quick reference in management views.
+--
+CREATE TABLE `products` (
+  `product_id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `name` VARCHAR(255) NOT NULL,
+  `description` TEXT NULL, 
+  `price` DECIMAL(10, 2) NOT NULL,
+  `stock_quantity` INT NOT NULL DEFAULT 0,
+  `category` VARCHAR(100) NULL
+);
+
+--
+-- 5. Sales Transactions (Header)
+-- A table to log each completed transaction. This gives us the total amount and who processed it.
+--
+CREATE TABLE `sales` (
+  `sale_id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `user_id` INT NOT NULL,
+  `total_amount` DECIMAL(10, 2) NOT NULL,
+  `sale_date` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`user_id`)
+);
+
+--
+-- 6. Sales Transaction Details (Items)
+-- Breaks down each sale into the specific products bought. Essential for inventory reduction and detailed reports.
+--
+CREATE TABLE `sale_items` (
+  `item_id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `sale_id` INT NOT NULL,
+  `product_id` INT NOT NULL,
+  `quantity` INT NOT NULL,
+  `unit_price` DECIMAL(10, 2) NOT NULL,
+  `subtotal` DECIMAL(10, 2) NOT NULL,
+  FOREIGN KEY (`sale_id`) REFERENCES `sales`(`sale_id`),
+  FOREIGN KEY (`product_id`) REFERENCES `products`(`product_id`)
+);
+
+--
+-- 7. Seeding Initial Data
+-- First, define the access roles.
+--
+INSERT INTO `roles` (`role_name`) VALUES
+('Admin'),
+('Manager'),
+('Cashier');
+
+--
+-- Next, create the staff accounts for testing. All use 'password' as the login key.
+--
+INSERT INTO `users` (`username`, `password`, `role_id`) VALUES
+('admin', 'password', 1),    -- Role ID 1 (Full Access)
+('manager', 'password', 2),  -- Role ID 2 (Supervision/Inventory)
+('cashier', 'password', 3);  -- Role ID 3 (Sales Only)
+
+--
+-- Finally, populate the inventory with 20 popular Philippine products.
+-- This makes the product management page look useful right away!
+--
+INSERT INTO `products` (`name`, `description`, `price`, `stock_quantity`, `category`) VALUES
+('Jollibee Chickenjoy (1pc)', 'A single piece of crispy, juicy fried chicken.', 82.00, 150, 'Fast Food'),
+('San Mig Light (Bottle)', 'Pale lager beer, popular light variant.', 48.00, 200, 'Alcohol'),
+('Lucky Me! Instant Noodles (Beef)', 'Classic instant noodle soup in beef flavor.', 12.50, 500, 'Groceries'),
+('Milo Chocolate Drink (Sachet)', 'Single-serve sachet of chocolate malt powder.', 18.00, 300, 'Beverage'),
+('Safeguard Bar Soap (White)', '135g bar soap for personal hygiene.', 45.75, 100, 'Personal Care'),
+('Cebu Dried Mangoes (100g)', 'Sweet and chewy dried fruit snack.', 120.00, 75, 'Snacks'),
+('SkyFlakes Crackers (Plain)', 'Salty, light crackers, staple snack.', 25.50, 400, 'Groceries'),
+('Mang Tomas Lechon Sauce', 'All-purpose sweet and savory dipping sauce.', 65.00, 90, 'Condiments'),
+('Bear Brand Milk Powder (300g)', 'Fortified powdered milk drink.', 155.00, 110, 'Dairy'),
+('Purefoods Corned Beef (150g)', 'Canned beef, classic Filipino breakfast staple.', 42.00, 180, 'Canned Goods'),
+('Tanduay Rhum Dark (750ml)', 'Popular Philippine dark rum.', 185.00, 50, 'Alcohol'),
+('Biogesic Paracetamol (Blister Pack)', '500mg pain reliever and fever reducer.', 5.50, 1000, 'Health'),
+('Monde Mamon (4-pack)', 'Soft, fluffy sponge cake.', 35.00, 85, 'Pastry'),
+('Oishi Prawn Crackers (Large)', 'Light and airy shrimp flavored snack.', 19.50, 250, 'Snacks'),
+('Kopiko 78°C Coffee (Bottle)', 'Ready-to-drink bottled coffee.', 38.00, 160, 'Beverage'),
+('Century Tuna Flakes in Oil', 'Canned tuna flakes, convenient meal.', 32.00, 220, 'Canned Goods'),
+('Palmolive Shampoo (Sachet)', 'Single-use shampoo sachet.', 7.00, 600, 'Personal Care'),
+('Selecta Ice Cream (1.5L)', 'Classic dessert in a tub (e.g., Ube or Vanilla).', 299.00, 40, 'Dessert'),
+('Del Monte Pineapple Juice (1L)', 'Canned or Tetra pack pineapple juice.', 88.00, 130, 'Beverage'),
+('Fita Crackers (Small Pack)', 'Light digestive crackers.', 20.00, 350, 'Groceries');
